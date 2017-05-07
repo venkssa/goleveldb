@@ -23,29 +23,30 @@ const (
 	LAST
 )
 
-type header struct {
-	header      [7]byte
-	headerSlice []byte
+type header []byte
+
+func newHeader() header {
+	return make([]byte, 7)
 }
 
 func (h header) SetRecordType(rt recordType) {
-	h.header[6] = byte(rt)
+	h[6] = byte(rt)
 }
 
 func (h header) RecordType() recordType {
-	return recordType(h.header[6])
+	return recordType(h[6])
 }
 
 func (h header) RecordTypeByte() []byte {
-	return h.header[6:7]
+	return h[6:7]
 }
 
 func (h header) SetLength(l uint16) {
-	binary.LittleEndian.PutUint16(h.header[4:6], l)
+	binary.LittleEndian.PutUint16(h[4:6], l)
 }
 
 func (h header) Length() uint16 {
-	return binary.LittleEndian.Uint16(h.header[4:6])
+	return binary.LittleEndian.Uint16(h[4:6])
 }
 
 func (h header) SetChecksum(checksum uint32) {

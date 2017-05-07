@@ -11,7 +11,7 @@ type RecordWriter struct {
 	blockOffset uint32
 	h           hash.Hash32
 
-	header
+	header header
 }
 
 // NewRecordWriter creates a writer that writes recods to the dest WriteSeeker.
@@ -21,6 +21,7 @@ func NewRecordWriter(dest io.WriteSeeker, destLength int64) *RecordWriter {
 		dest:        &trackingWriteSeeker{dest: dest, destLength: destLength},
 		blockOffset: uint32(destLength % blockSize),
 		h:           crc32.NewIEEE(),
+		header:      newHeader(),
 	}
 }
 
@@ -80,7 +81,7 @@ func (w *RecordWriter) writeRecordFragment(rt recordType, p []byte) {
 	w.h.Write(p)
 	w.header.SetChecksum(w.h.Sum32())
 
-	w.dest.Write(w.header[0:])
+	w.dest.Write(w.header)
 	w.dest.Write(p)
 	w.blockOffset += recordHeaderSize + uint32(len(p))
 }

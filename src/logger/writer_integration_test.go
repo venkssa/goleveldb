@@ -17,7 +17,6 @@ func TestWriteLargeRecordToTempFile(t *testing.T) {
 
 	writtenLen := writeFailOnError(t, w, make([]byte, 20*(blockSize-recordHeaderSize)))
 	verifyWrittenLength(t, writtenLen, 20*blockSize)
-	t.Log(f.Name())
 }
 
 func BenchmarkWriteLogToTempFile(b *testing.B) {
