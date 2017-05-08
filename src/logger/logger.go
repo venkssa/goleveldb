@@ -1,6 +1,8 @@
 package logger
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
 const (
 	// blockSize is the size of a block within the log.
