@@ -24,6 +24,9 @@ func NewRecordReader(src io.Reader, srcLength int64) *RecordReader {
 		buf:         make([]byte, blockSize-recordHeaderSize)}
 }
 
+var errorHeaderEOF = fmt.Errorf("could not read record header: %v", io.EOF)
+var errorBodyEOF = fmt.Errorf("count not read record body: %v", io.EOF)
+
 // Read reads from reader decodes record header, validates checksum and writes to the writer.
 // This currently does not handle corrupted records or properly skips records that are wrong.
 func (rr *RecordReader) Read(w io.Writer) (n int, err error) {
@@ -36,13 +39,13 @@ func (rr *RecordReader) Read(w io.Writer) (n int, err error) {
 	for hasMore {
 		_, err := io.ReadFull(rr.src, rr.header)
 		if err != nil {
-			return 0, fmt.Errorf("could not read record header: %v", err)
+			return 0, errorHeaderEOF
 		}
 
 		buf := rr.buf[0:rr.header.Length()]
-		_, err = io.ReadFull(rr.src, buf)
+		n, err = io.ReadFull(rr.src, buf)
 		if err != nil {
-			return n, fmt.Errorf("count not read record body: %v", err)
+			return n, errorBodyEOF
 		}
 
 		rr.hash.Reset()

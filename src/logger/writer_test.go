@@ -83,15 +83,7 @@ func BenchmarkWriteRecord(b *testing.B) {
 
 type onlyOnceSeekableBuffer struct {
 	bytes.Buffer
-	alreadySeeked bool
-}
-
-func (sb *onlyOnceSeekableBuffer) Seek(offset int64, whence int) (int64, error) {
-	if sb.alreadySeeked {
-		panic("Should be seeked only once. But was called more than once")
-	}
-	sb.alreadySeeked = true
-	return offset, nil
+	OnlyOnceSeeker
 }
 
 func writeFailOnError(t *testing.T, w *RecordWriter, input []byte) int {

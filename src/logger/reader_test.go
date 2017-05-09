@@ -49,6 +49,63 @@ func TestRead_WhenBlockHasLessThan6Bytes_ShouldSkip6BytesAndReadRecord(t *testin
 	readRecordAndVerify(t, NewRecordReader(so, blockSize-(recordHeaderSize-1)), input)
 }
 
+func TestRead_WritesFirstRecordFragmentButDiesBeforeWritingSecondRecordBody_ShouldReturnEOF(t *testing.T) {
+	so := &DiscardAfterBuffer{
+		N: 14,
+	}
+	w := NewRecordWriter(so, blockSize-recordHeaderSize)
+	writeFailOnError(t, w, []byte("hello"))
+
+	resultBuf := new(bytes.Buffer)
+	_, err := NewRecordReader(so, blockSize-(recordHeaderSize)).Read(resultBuf)
+	if err != errorBodyEOF {
+		t.Fatalf("Expected '%v' but got '%v'", errorBodyEOF, err)
+	}
+}
+
+func TestRead_Partial2ndHeaderShouldReturnErrorHeaderEOF(t *testing.T) {
+	so := &DiscardAfterBuffer{
+		N: 13,
+	}
+	w := NewRecordWriter(so, blockSize-recordHeaderSize)
+	writeFailOnError(t, w, []byte("hello"))
+
+	resultBuf := new(bytes.Buffer)
+	_, err := NewRecordReader(so, blockSize-(recordHeaderSize)).Read(resultBuf)
+	if err != errorHeaderEOF {
+		t.Fatalf("Expected '%v' but got '%v'", errorHeaderEOF, err)
+	}
+}
+
+type OnlyOnceSeeker struct {
+	alreadySeeked bool
+}
+
+func (s *OnlyOnceSeeker) Seek(offset int64, whence int) (int64, error) {
+	if s.alreadySeeked {
+		panic("Should be seeked only once. But was called more than once")
+	}
+	s.alreadySeeked = true
+	return offset, nil
+}
+
+type DiscardAfterBuffer struct {
+	onlyOnceSeekableBuffer
+	N int
+}
+
+func (b *DiscardAfterBuffer) Write(p []byte) (int, error) {
+	last := len(p)
+	if last > b.N {
+		last = b.N
+	}
+	if b.N > 0 {
+		n, _ := b.Buffer.Write(p[0:last])
+		b.N -= n
+	}
+	return len(p), nil
+}
+
 func fill(buf []byte, n byte) {
 	for i := 0; i < len(buf); i++ {
 		buf[i] = n
