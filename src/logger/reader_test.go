@@ -6,19 +6,36 @@ import (
 	"testing"
 )
 
-func TestRecordReader_ReadFullRecord(t *testing.T) {
-	so := new(onlyOnceSeekableBuffer)
-	input := "hello world"
+func TestRecordReader_Success(t *testing.T) {
+	tests := map[string]struct {
+		fileOffset int64
+	}{
+		"Read full record": {
+			fileOffset: 0,
+		},
+		"Read record when block offset is in the last 7 bytes": {
+			fileOffset: blockSize - recordHeaderSize,
+		},
+		"Read record should skip last 6 bytes of a block": {
+			fileOffset: blockSize - (recordHeaderSize - 1),
+		},
+	}
 
-	w := NewRecordWriter(so, 0)
+	for testName, test := range tests {
+		t.Run(testName, func(t *testing.T) {
+			buf := new(OnlyOnceSeekableBuffer)
+			w := NewRecordWriter(buf, test.fileOffset)
+			input := []byte("hello world")
 
-	writeFailOnError(t, w, []byte(input))
-	readRecordAndVerify(t, NewRecordReader(so, 0), []byte(input))
+			writeFailOnError(t, w, input)
+			readRecordAndVerify(t, NewRecordReader(buf, test.fileOffset), input)
+		})
+	}
 }
 
 func TestMultipleRecords(t *testing.T) {
-	so := new(onlyOnceSeekableBuffer)
-	w := NewRecordWriter(so, 0)
+	buf := new(OnlyOnceSeekableBuffer)
+	w := NewRecordWriter(buf, 0)
 
 	const bs = blockSize - recordHeaderSize
 	input := make([]byte, 3*bs)
@@ -27,83 +44,38 @@ func TestMultipleRecords(t *testing.T) {
 	fill(input[2*bs:3*bs], 51)
 
 	writeFailOnError(t, w, input)
-	readRecordAndVerify(t, NewRecordReader(so, 0), input)
+	readRecordAndVerify(t, NewRecordReader(buf, 0), input)
 }
 
-func TestRecordReader_ReadRecordStartingAtLast7Bytes(t *testing.T) {
-	so := new(onlyOnceSeekableBuffer)
-	w := NewRecordWriter(so, blockSize-recordHeaderSize)
-
-	input := []byte("hello world")
-
-	writeFailOnError(t, w, input)
-	readRecordAndVerify(t, NewRecordReader(so, blockSize-recordHeaderSize), input)
-}
-
-func TestRead_WhenBlockHasLessThan6Bytes_ShouldSkip6BytesAndReadRecord(t *testing.T) {
-	so := new(onlyOnceSeekableBuffer)
-	w := NewRecordWriter(so, blockSize-(recordHeaderSize-1))
-	input := []byte("hello world")
-
-	writeFailOnError(t, w, input)
-	readRecordAndVerify(t, NewRecordReader(so, blockSize-(recordHeaderSize-1)), input)
-}
-
-func TestRead_WritesFirstRecordFragmentButDiesBeforeWritingSecondRecordBody_ShouldReturnEOF(t *testing.T) {
-	so := &DiscardAfterBuffer{
-		N: 14,
+func TestRecordRead_Error(t *testing.T) {
+	tests := map[string]struct {
+		buf           *DiscardAfterBuffer
+		input         string
+		expectedError error
+	}{
+		"First fragment successful but dies before wiriting the second record body; should return errorBodyEOF": {
+			buf:           &DiscardAfterBuffer{N: 14},
+			input:         "hello",
+			expectedError: errorBodyEOF,
+		},
+		"First fragment successful but dies before wiriting the second record header; should return errorHeaderEOF": {
+			buf:           &DiscardAfterBuffer{N: 13},
+			input:         "hello",
+			expectedError: errorHeaderEOF,
+		},
 	}
-	w := NewRecordWriter(so, blockSize-recordHeaderSize)
-	writeFailOnError(t, w, []byte("hello"))
 
-	resultBuf := new(bytes.Buffer)
-	_, err := NewRecordReader(so, blockSize-(recordHeaderSize)).Read(resultBuf)
-	if err != errorBodyEOF {
-		t.Fatalf("Expected '%v' but got '%v'", errorBodyEOF, err)
+	for testName, test := range tests {
+		t.Run(testName, func(t *testing.T) {
+			writeFailOnError(t, NewRecordWriter(test.buf, blockSize-recordHeaderSize), []byte(test.input))
+
+			resultBuf := new(bytes.Buffer)
+			_, err := NewRecordReader(test.buf, blockSize-(recordHeaderSize)).Read(resultBuf)
+			if err != test.expectedError {
+				t.Fatalf("Expected '%v' but got '%v'", test.expectedError, err)
+			}
+		})
 	}
-}
-
-func TestRead_Partial2ndHeaderShouldReturnErrorHeaderEOF(t *testing.T) {
-	so := &DiscardAfterBuffer{
-		N: 13,
-	}
-	w := NewRecordWriter(so, blockSize-recordHeaderSize)
-	writeFailOnError(t, w, []byte("hello"))
-
-	resultBuf := new(bytes.Buffer)
-	_, err := NewRecordReader(so, blockSize-(recordHeaderSize)).Read(resultBuf)
-	if err != errorHeaderEOF {
-		t.Fatalf("Expected '%v' but got '%v'", errorHeaderEOF, err)
-	}
-}
-
-type OnlyOnceSeeker struct {
-	alreadySeeked bool
-}
-
-func (s *OnlyOnceSeeker) Seek(offset int64, whence int) (int64, error) {
-	if s.alreadySeeked {
-		panic("Should be seeked only once. But was called more than once")
-	}
-	s.alreadySeeked = true
-	return offset, nil
-}
-
-type DiscardAfterBuffer struct {
-	onlyOnceSeekableBuffer
-	N int
-}
-
-func (b *DiscardAfterBuffer) Write(p []byte) (int, error) {
-	last := len(p)
-	if last > b.N {
-		last = b.N
-	}
-	if b.N > 0 {
-		n, _ := b.Buffer.Write(p[0:last])
-		b.N -= n
-	}
-	return len(p), nil
 }
 
 func fill(buf []byte, n byte) {

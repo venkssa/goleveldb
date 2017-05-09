@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"bytes"
 	"encoding/binary"
 	"hash/crc32"
 	"reflect"
@@ -9,7 +8,7 @@ import (
 )
 
 func TestWriteRecordInBlock(t *testing.T) {
-	buf := new(onlyOnceSeekableBuffer)
+	buf := new(OnlyOnceSeekableBuffer)
 	w := NewRecordWriter(buf, 0)
 	input := []byte("hello world")
 
@@ -22,7 +21,7 @@ func TestWriteRecordInBlock(t *testing.T) {
 }
 
 func TestWrite_WhenBlockHasLessThan6Bytes_ShouldFillEndOfBlockWith6ZeroBytes(t *testing.T) {
-	buf := new(onlyOnceSeekableBuffer)
+	buf := new(OnlyOnceSeekableBuffer)
 	w := NewRecordWriter(buf, blockSize-(recordHeaderSize-1))
 	input := []byte("hello world")
 
@@ -39,7 +38,7 @@ func TestWrite_WhenBlockHasLessThan6Bytes_ShouldFillEndOfBlockWith6ZeroBytes(t *
 }
 
 func TestWrite_WhenBlockHas7Bytes_ShouldCreateAZeroLengthRecordWithRecordTypeFirst(t *testing.T) {
-	buf := new(onlyOnceSeekableBuffer)
+	buf := new(OnlyOnceSeekableBuffer)
 	w := NewRecordWriter(buf, blockSize-recordHeaderSize)
 
 	input := []byte("hello world")
@@ -55,7 +54,7 @@ func TestWrite_WhenBlockHas7Bytes_ShouldCreateAZeroLengthRecordWithRecordTypeFir
 }
 
 func TestWrite_WhenRecodsSpansOver3Blocks_ShouldCreateFirstMiddleLastRecods(t *testing.T) {
-	buf := new(onlyOnceSeekableBuffer)
+	buf := new(OnlyOnceSeekableBuffer)
 	w := NewRecordWriter(buf, 0)
 
 	writtenLen := writeFailOnError(t, w, make([]byte, 3*(blockSize-recordHeaderSize)))
@@ -69,7 +68,7 @@ func TestWrite_WhenRecodsSpansOver3Blocks_ShouldCreateFirstMiddleLastRecods(t *t
 }
 
 func BenchmarkWriteRecord(b *testing.B) {
-	buf := new(onlyOnceSeekableBuffer)
+	buf := new(OnlyOnceSeekableBuffer)
 	w := NewRecordWriter(buf, 0)
 
 	record := make([]byte, 1023)
@@ -79,11 +78,6 @@ func BenchmarkWriteRecord(b *testing.B) {
 		}
 		buf.Reset()
 	}
-}
-
-type onlyOnceSeekableBuffer struct {
-	bytes.Buffer
-	OnlyOnceSeeker
 }
 
 func writeFailOnError(t *testing.T, w *RecordWriter, input []byte) int {
