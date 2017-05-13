@@ -2,6 +2,7 @@ package logger
 
 import (
 	"encoding/binary"
+	"fmt"
 )
 
 const (
@@ -13,10 +14,27 @@ const (
 
 type recordType uint8
 
+func (r recordType) String() string {
+	switch r {
+	case uninit:
+		return "uninit"
+	case FULL:
+		return "FULL"
+	case FIRST:
+		return "FIRST"
+	case MIDDLE:
+		return "MIDDLE"
+	case LAST:
+		return "LAST"
+	default:
+		return fmt.Sprintf("Invalid recordType %v", int(r))
+	}
+}
+
 const (
-	_ = iota
+	uninit recordType = iota
 	// FULL is the type of record that contains the contents of an entire user record.
-	FULL recordType = iota
+	FULL
 	// FIRST is the type of record that contains first fragment of a user record.
 	FIRST
 	// MIDDLE is the type of record that contains middle fragments of a user record.
