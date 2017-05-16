@@ -8,7 +8,7 @@ import (
 )
 
 type RecordReader struct {
-	src *trackingReadSeeker
+	src *trackingReader
 
 	header header
 
@@ -19,7 +19,7 @@ type RecordReader struct {
 func NewRecordReader(src io.ReadSeeker, srcLength int64) *RecordReader {
 	src.Seek(srcLength, io.SeekStart)
 	return &RecordReader{
-		src:    newTrackingReadSeeker(src, srcLength),
+		src:    newTrackingReader(src, srcLength),
 		header: newHeader(),
 		hash:   crc32.NewIEEE(),
 		buf:    make([]byte, blockSize-recordHeaderSize)}
@@ -99,22 +99,22 @@ func (r RecordTypeMissmatchError) Error() string {
 
 const skippableEndOfBlockSize = uint32(recordHeaderSize - 1)
 
-type trackingReadSeeker struct {
-	io.ReadSeeker
+type trackingReader struct {
+	io.Reader
 	blockOffset uint32
 
 	skippableEndOfBlockBuf []byte
 }
 
-func newTrackingReadSeeker(src io.ReadSeeker, seekOffset int64) *trackingReadSeeker {
-	return &trackingReadSeeker{
-		ReadSeeker:             src,
+func newTrackingReader(src io.ReadSeeker, seekOffset int64) *trackingReader {
+	return &trackingReader{
+		Reader:                 src,
 		blockOffset:            uint32(seekOffset % blockSize),
 		skippableEndOfBlockBuf: make([]byte, skippableEndOfBlockSize),
 	}
 }
 
-func (r *trackingReadSeeker) SkipEndOfBlock() error {
+func (r *trackingReader) SkipEndOfBlock() error {
 	if blockSize-r.blockOffset > skippableEndOfBlockSize {
 		return nil
 	}
@@ -125,7 +125,7 @@ func (r *trackingReadSeeker) SkipEndOfBlock() error {
 	return nil
 }
 
-func (r *trackingReadSeeker) ReadFull(buf []byte) (int, error) {
+func (r *trackingReader) ReadFull(buf []byte) (int, error) {
 	n, err := io.ReadFull(r, buf)
 	r.blockOffset += uint32(n)
 	return n, err

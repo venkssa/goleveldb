@@ -7,7 +7,7 @@ import (
 )
 
 type RecordWriter struct {
-	dest        *trackingWriteSeeker
+	dest        *trackingWriter
 	blockOffset uint32
 	h           hash.Hash32
 
@@ -19,7 +19,7 @@ type RecordWriter struct {
 func NewRecordWriter(dest io.WriteSeeker, destLength int64) *RecordWriter {
 	dest.Seek(destLength, io.SeekStart)
 	return &RecordWriter{
-		dest:        &trackingWriteSeeker{dest: dest},
+		dest:        &trackingWriter{dest: dest},
 		blockOffset: uint32(destLength % blockSize),
 		h:           crc32.NewIEEE(),
 		header:      newHeader(),
@@ -87,21 +87,21 @@ func (w *RecordWriter) writeRecordFragment(rt recordType, p []byte) {
 	w.blockOffset += recordHeaderSize + uint32(len(p))
 }
 
-type trackingWriteSeeker struct {
-	dest io.WriteSeeker
+type trackingWriter struct {
+	dest io.Writer
 
 	n   int
 	err error
 }
 
-func (tw *trackingWriteSeeker) Write(p []byte) {
+func (tw *trackingWriter) Write(p []byte) {
 	if tw.err == nil {
 		_, tw.err = tw.dest.Write(p)
 	}
 	tw.n += len(p)
 }
 
-func (tw *trackingWriteSeeker) Reset() {
+func (tw *trackingWriter) Reset() {
 	tw.n = 0
 	tw.err = nil
 }
