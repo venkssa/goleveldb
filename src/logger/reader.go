@@ -17,6 +17,7 @@ type RecordReader struct {
 }
 
 func NewRecordReader(src io.ReadSeeker, srcLength int64) *RecordReader {
+	src.Seek(srcLength, io.SeekStart)
 	return &RecordReader{
 		src:    newTrackingReadSeeker(src, srcLength),
 		header: newHeader(),

@@ -6,6 +6,10 @@ type OnlyOnceSeeker struct {
 	alreadySeeked bool
 }
 
+func (s *OnlyOnceSeeker) ResetSeeker() {
+	s.alreadySeeked = false
+}
+
 func (s *OnlyOnceSeeker) Seek(offset int64, whence int) (int64, error) {
 	if s.alreadySeeked {
 		panic("Should be seeked only once. But was called more than once")

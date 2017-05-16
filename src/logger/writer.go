@@ -17,8 +17,9 @@ type RecordWriter struct {
 // NewRecordWriter creates a writer that writes recods to the dest WriteSeeker.
 // The WriteSeeker would be seeked only once and would be seeked to destLength relative to the start of the file.
 func NewRecordWriter(dest io.WriteSeeker, destLength int64) *RecordWriter {
+	dest.Seek(destLength, io.SeekStart)
 	return &RecordWriter{
-		dest:        &trackingWriteSeeker{dest: dest, destLength: destLength},
+		dest:        &trackingWriteSeeker{dest: dest},
 		blockOffset: uint32(destLength % blockSize),
 		h:           crc32.NewIEEE(),
 		header:      newHeader(),
@@ -87,19 +88,13 @@ func (w *RecordWriter) writeRecordFragment(rt recordType, p []byte) {
 }
 
 type trackingWriteSeeker struct {
-	dest          io.WriteSeeker
-	destLength    int64
-	alreadySeeked bool
+	dest io.WriteSeeker
 
 	n   int
 	err error
 }
 
 func (tw *trackingWriteSeeker) Write(p []byte) {
-	if !tw.alreadySeeked {
-		tw.dest.Seek(tw.destLength, io.SeekStart)
-		tw.alreadySeeked = true
-	}
 	if tw.err == nil {
 		_, tw.err = tw.dest.Write(p)
 	}

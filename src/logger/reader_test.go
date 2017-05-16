@@ -29,6 +29,7 @@ func TestRecordReader_Success(t *testing.T) {
 			input := []byte("hello world")
 
 			writeFailOnError(t, w, input)
+			buf.ResetSeeker()
 			readRecordAndVerify(t, NewRecordReader(buf, test.fileOffset), input)
 		})
 	}
@@ -45,6 +46,7 @@ func TestMultipleRecords(t *testing.T) {
 	fill(input[2*bs:3*bs], 51)
 
 	writeFailOnError(t, w, input)
+	buf.ResetSeeker()
 	readRecordAndVerify(t, NewRecordReader(buf, 0), input)
 }
 
@@ -71,6 +73,7 @@ func TestRecordRead_Error(t *testing.T) {
 			writeFailOnError(t, NewRecordWriter(test.buf, blockSize-recordHeaderSize), []byte(test.input))
 
 			resultBuf := new(bytes.Buffer)
+			test.buf.ResetSeeker()
 			_, err := NewRecordReader(test.buf, blockSize-(recordHeaderSize)).Read(resultBuf)
 			if err != test.expectedError {
 				t.Fatalf("Expected '%v' but got '%v'", test.expectedError, err)
@@ -93,6 +96,7 @@ func TestRecordRead_MultipleRecord_FirstPartialRecordSecondFullRecord_ShouldBeAn
 	buf.N = recordHeaderSize + len(secondFullRecord)
 	writeFailOnError(t, rw, []byte(secondFullRecord))
 
+	buf.ResetSeeker()
 	resultBuf := new(bytes.Buffer)
 	n, err := NewRecordReader(buf, blockSize-recordHeaderSize-1).Read(resultBuf)
 
